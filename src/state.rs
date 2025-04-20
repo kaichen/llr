@@ -10,6 +10,7 @@ pub struct AppState {
     pub client: Arc<Client>,
     pub upstream: Uri,
     pub auth_header: HeaderValue,
+    pub dump_body: bool,
 }
 
 impl TryFrom<&Args> for AppState {
@@ -23,6 +24,7 @@ impl TryFrom<&Args> for AppState {
             client: Arc::new(Client::new()),
             upstream: args.upstream_uri(),
             auth_header,
+            dump_body: args.dump_body,
         })
     }
 } 

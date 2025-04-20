@@ -20,6 +20,10 @@ pub struct Args {
     /// RUST_LOG style filter, default `info`
     #[arg(long, default_value = "info")]
     pub log: String,
+
+    /// Dump LLM API request and response body
+    #[arg(long, default_value_t = false)]
+    pub dump_body: bool,
 }
 
 impl Args {

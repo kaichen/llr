@@ -6,8 +6,37 @@ use axum::{
 use reqwest::Method;
 use tracing::{error, info};
 use axum::body::to_bytes;
+use chrono::Utc;
+use tokio::fs::{create_dir_all, OpenOptions};
+use tokio::io::AsyncWriteExt;
 
 use crate::state::AppState;
+
+async fn log_body(host: &str, is_request: bool, bytes: &[u8]) {
+    // best‑effort; on failure just emit a tracing error and continue
+    if let Err(e) = async {
+        create_dir_all("logs").await?;
+        let file_path = format!("logs/{}.log", host);
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&file_path)
+            .await?;
+
+        let ts = Utc::now().to_rfc3339();
+        let direction = if is_request { "REQUEST" } else { "RESPONSE" };
+
+        file.write_all(format!("\n----- {} {} -----\n", direction, ts).as_bytes())
+            .await?;
+        file.write_all(bytes).await?;
+        file.write_all(b"\n").await?;
+        Ok::<(), std::io::Error>(())
+    }
+    .await
+    {
+        error!("failed to write body log: {}", e);
+    }
+}
 
 pub async fn handle(
     Extension(state): Extension<AppState>,
@@ -24,6 +53,16 @@ pub async fn handle(
         .await
         .map_err(|_| StatusCode::BAD_REQUEST)?;
 
+    // -------- log REQUEST body --------
+    let host_owned = state
+        .upstream
+        .host()
+        .unwrap_or("unknown")
+        .to_string();
+    if state.dump_body {
+        log_body(&host_owned, true, &bytes).await;
+    }
+
     let forward_req = state
         .client
         .request(Method::POST, target)
@@ -37,7 +76,7 @@ pub async fn handle(
         StatusCode::BAD_GATEWAY
     })?;
 
-    Ok(convert_response(resp).await?)
+    Ok(convert_response(resp, &host_owned, &state).await?)
 }
 
 fn build_target_url(base: &axum::http::Uri, ori: &axum::http::Uri) -> Option<reqwest::Url> {
@@ -63,6 +102,8 @@ fn build_headers(src: &HeaderMap, auth: &HeaderValue) -> Result<HeaderMap, Statu
 
 async fn convert_response(
     upstream: reqwest::Response,
+    host: &str,
+    state: &AppState,
 ) -> Result<Response<Body>, StatusCode> {
     let status = upstream.status();
     let mut builder = Response::builder().status(status);
@@ -70,6 +111,12 @@ async fn convert_response(
         h.extend(upstream.headers().clone());
     }
     let bytes = upstream.bytes().await.map_err(|_| StatusCode::BAD_GATEWAY)?;
+
+    // -------- log RESPONSE body --------
+    if state.dump_body {
+        log_body(host, false, &bytes).await;
+    }
+
     builder
         .body(Body::from(bytes))
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)

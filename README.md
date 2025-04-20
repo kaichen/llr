@@ -4,7 +4,7 @@ LLR, Large Local Router.
 
 ## Features
 - Forward LLM API requests to specified endpoints
-- Log LLM request and response content to log file
+- Log LLM request and response content to log file(with --dump-boby option)
 - Cast OpenAI <=> Anthropic format (TODO)
 - Load balance to multiple endpoints (TODO)
 
