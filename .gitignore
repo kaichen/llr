@@ -1,0 +1,7 @@
+/target
+*.log
+*.log.*
+.aider*
+
+# LLM proxy logs
+logs/llm-proxy.log*

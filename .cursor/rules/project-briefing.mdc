@@ -1,0 +1,9 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Project Briefing(MUST-READ!!!)
+- written in rust
+- build a LLM API proxy server
+- use english in readme.md

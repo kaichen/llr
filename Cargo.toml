@@ -1,0 +1,26 @@
+[package]
+name = "light-local-router"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "4.4", features = ["derive"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
+tracing = "0.1.41"
+axum = { version = "~0.8.3" } # Web framework that focuses on ergonomics and modularity.
+hyper = { version = "~1.4.1", features = ["full"] } # A fast and correct HTTP library.
+tokio = { version = "1.44.2", features = ["full", "process", "signal"] }
+tower = { version =  "~0.5.2" } # Modular reusable components for building robust clients and servers.
+http = { version = "~1.1.0" } # Types for HTTP requests and responses.
+reqwest      = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tower-http   = { version = "0.5.2", features = ["trace"] }
+bytes       = "1"
+http-body = "1"
+http-body-util = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[features]
+cargo-clippy = []
