@@ -23,7 +23,8 @@ $ cargo build --release
 
 ```bash
 # Run the server with default configuration
-$ cargo run --release
+# dump-body would log request and response in logs/api.openai.com.log
+$ cargo run -- --dump-body --upstream https://api.openai.com --api-key "***************************************************"
 ```
 
 ## Configuration(TODO)
