@@ -2,14 +2,14 @@ use std::net::SocketAddr;
 
 use anyhow::Result;
 use axum::routing::any;
-use axum::{Router, Extension};
-use tower_http::trace::TraceLayer;
-use tokio::net::TcpListener;
+use axum::{Extension, Router};
 use clap::Parser;
+use tokio::net::TcpListener;
+use tower_http::trace::TraceLayer;
 
+use light_local_router::cli;
 use light_local_router::logging;
 use light_local_router::proxy;
-use light_local_router::cli;
 use light_local_router::state::AppState;
 
 #[tokio::main]

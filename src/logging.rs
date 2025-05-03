@@ -5,4 +5,4 @@ pub fn init(filter: &str) {
         .with(tracing_subscriber::EnvFilter::new(filter))
         .with(tracing_subscriber::fmt::layer())
         .init();
-} 
+}
