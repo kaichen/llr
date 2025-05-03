@@ -8,7 +8,7 @@ use chrono::Utc;
 use reqwest::Method;
 use tokio::fs::{create_dir_all, OpenOptions};
 use tokio::io::AsyncWriteExt;
-use tracing::{error, info};
+use tracing::{error, info, debug};
 
 use crate::state::AppState;
 use crate::transform;
@@ -100,13 +100,13 @@ pub async fn handle(
         let url = forward_req.url();
         let mut headers_log = String::new();
         for (name, value) in forward_req.headers().iter() {
-            // if name == header::AUTHORIZATION {
-            //     headers_log.push_str(&format!("{}: <REDACTED>\n", name));
-            // } else {
+            if name == header::AUTHORIZATION {
+                headers_log.push_str(&format!("{}: <REDACTED>\n", name));
+            } else {
                 headers_log.push_str(&format!("{}: {:?}\n", name, value));
-            // }
+            }
         }
-        info!("Forwarding request: {} {}\nHeaders:\n{}", method, url, headers_log);
+        debug!("Forwarding request: {} {}\nHeaders:\n{}", method, url, headers_log);
     }
 
     let resp = state.client.execute(forward_req).await.map_err(|e| {

@@ -18,7 +18,8 @@ pub struct Args {
     pub api_key: String,
 
     /// RUST_LOG style filter, default `info`
-    #[arg(long, default_value = "info")]
+    /// Log level (error, warn, info, debug, trace), default `info`
+    #[arg(long = "log-level", default_value = "info")]
     pub log: String,
 
     /// Dump LLM API request and response body
