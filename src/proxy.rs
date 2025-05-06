@@ -4,47 +4,19 @@ use axum::{
     extract::{Extension, OriginalUri},
     http::{header, HeaderMap, HeaderValue, Request, Response, StatusCode},
 };
-use chrono::Utc;
 use reqwest::Method;
-use tokio::fs::{create_dir_all, OpenOptions};
-use tokio::io::AsyncWriteExt;
-use tracing::{error, info, debug};
 
+use crate::logging;
 use crate::state::AppState;
 use crate::transform;
 
-async fn log_body(host: &str, is_request: bool, bytes: &[u8]) {
-    // best‑effort; on failure just emit a tracing error and continue
-    if let Err(e) = async {
-        create_dir_all("logs").await?;
-        let file_path = format!("logs/{}.log", host);
-        let mut file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&file_path)
-            .await?;
-
-        let ts = Utc::now().to_rfc3339();
-        let direction = if is_request { "REQUEST" } else { "RESPONSE" };
-
-        file.write_all(format!("\n----- {} {} -----\n", direction, ts).as_bytes())
-            .await?;
-        file.write_all(bytes).await?;
-        file.write_all(b"\n").await?;
-        Ok::<(), std::io::Error>(())
-    }
-    .await
-    {
-        error!("failed to write body log: {}", e);
-    }
-}
 
 pub async fn handle(
     Extension(state): Extension<AppState>,
     OriginalUri(original_uri): OriginalUri,
     req: Request<Body>,
 ) -> Result<Response<Body>, StatusCode> {
-    info!("{} {}", req.method(), original_uri);
+    logging::log_request_info(req.method(), &original_uri);
 
     let (parts, body) = req.into_parts();
     let bytes = to_bytes(body, 2 * 1024 * 1024)
@@ -55,12 +27,9 @@ pub async fn handle(
     let (mut path, mut fwd_body) = (original_uri.path().to_string(), bytes.clone());
     if state.anthropic_mode {
         if let Some((new_path, new_body)) = transform::anthropic_to_openai(&path, &fwd_body) {
-            info!("Anthropic → OpenAI rewrite: {} -> {}", path, new_path);
+            logging::log_transformation(&path, &new_path);
             path = new_path;
-            info!(
-                "Anthropic → OpenAI body: {}",
-                String::from_utf8_lossy(&new_body)
-            );
+            logging::log_transformed_body(&new_body);
             fwd_body = axum::body::Bytes::from(new_body);
         }
     }
@@ -68,7 +37,7 @@ pub async fn handle(
     // -------- log REQUEST body --------
     let host_owned = state.upstream.host().unwrap_or("unknown").to_string();
     if state.dump_body {
-        log_body(&host_owned, true, &fwd_body[..]).await;
+        logging::log_body(&host_owned, true, &fwd_body[..]).await;
     }
 
     // Build target URL with (possibly) rewritten path -----------------------
@@ -84,7 +53,7 @@ pub async fn handle(
         }
         reqwest::Url::parse(&base).map_err(|_| StatusCode::BAD_REQUEST)?
     };
-    info!("target: {}", target);
+    logging::log_target_url(&target.to_string());
 
     let forward_req = state
         .client
@@ -106,11 +75,11 @@ pub async fn handle(
                 headers_log.push_str(&format!("{}: {:?}\n", name, value));
             }
         }
-        debug!("Forwarding request: {} {}\nHeaders:\n{}", method, url, headers_log);
+        logging::log_request_details(method, url, &headers_log);
     }
 
     let resp = state.client.execute(forward_req).await.map_err(|e| {
-        error!("Upstream error: {}", e);
+        logging::log_upstream_error(&e);
         StatusCode::BAD_GATEWAY
     })?;
 
@@ -146,7 +115,7 @@ async fn convert_response(
 
     // -------- log RESPONSE body --------
     if state.dump_body {
-        log_body(host, false, &bytes).await;
+        logging::log_body(host, false, &bytes).await;
     }
 
     builder
